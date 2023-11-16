@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/cgi"
 	"os"
+	"os/signal"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/internal/controller"
@@ -22,6 +23,9 @@ func main() {
 	flag.StringVar(&gitProjectRoot, "git-project-root", "/tmp/dockyards-git", "git project root")
 	flag.StringVar(&gitCGIPath, "git-cgi-path", "/usr/libexec/git-core/git-http-backend", "git cgi path")
 	flag.Parse()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	logr := slogr.NewLogr(logger.Handler())
@@ -49,8 +53,6 @@ func main() {
 
 		os.Exit(1)
 	}
-
-	ctx := context.Background()
 
 	err = (&controller.KustomizeDeploymentReconciler{
 		Client:         m.GetClient(),
