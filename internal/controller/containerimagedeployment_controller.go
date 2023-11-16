@@ -52,7 +52,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		u := url.URL{
 			Scheme: "http",
 			Host:   "dockyards-git.dockyards",
-			Path:   repoPath + ".git",
+			Path:   repoPath,
 		}
 
 		containerImageDeployment.Status.RepositoryURL = u.String()

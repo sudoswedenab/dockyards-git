@@ -52,7 +52,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		u := url.URL{
 			Scheme: "http",
 			Host:   "dockyards-git.dockyards",
-			Path:   repoPath + ".git",
+			Path:   repoPath,
 		}
 
 		kustomizeDeployment.Status.RepositoryURL = u.String()
