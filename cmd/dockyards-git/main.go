@@ -65,6 +65,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = (&controller.ContainerImageDeploymentReconciler{
+		Client:         m.GetClient(),
+		Logger:         logger,
+		GitProjectRoot: gitProjectRoot,
+	}).SetupWithManager(ctx, m)
+	if err != nil {
+		logger.Error("error creating container image controller", "err", err)
+
+		os.Exit(1)
+	}
+
 	cgiHandler := cgi.Handler{
 		Path: gitCGIPath,
 		Dir:  gitProjectRoot,
