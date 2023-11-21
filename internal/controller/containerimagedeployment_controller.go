@@ -24,13 +24,15 @@ type ContainerImageDeploymentReconciler struct {
 }
 
 func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := r.Logger.With("name", req.Name, "namespace", req.Namespace)
+
 	var containerImageDeployment v1alpha1.ContainerImageDeployment
 	err := r.Get(ctx, req.NamespacedName, &containerImageDeployment)
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
 
-	r.Logger.Debug("reconcile container image deployment", "name", containerImageDeployment.Name)
+	logger.Debug("reconcile container image deployment")
 
 	if !containerImageDeployment.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, &containerImageDeployment)
@@ -45,7 +47,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 			return ctrl.Result{}, err
 		}
 
-		r.Logger.Debug("created repository for container image deployment", "path", repoPath)
+		logger.Debug("created repository for container image deployment", "path", repoPath)
 
 		patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
@@ -59,7 +61,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 		err = r.Status().Patch(ctx, &containerImageDeployment, patch)
 		if err != nil {
-			r.Logger.Error("error patching kustomized deployment", "err", err)
+			logger.Error("error patching kustomized deployment", "err", err)
 
 			return ctrl.Result{}, err
 		}

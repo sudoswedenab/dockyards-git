@@ -24,13 +24,15 @@ type KustomizeDeploymentReconciler struct {
 }
 
 func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := r.Logger.With("name", req.Name, "namespace", req.Namespace)
+
 	var kustomizeDeployment v1alpha1.KustomizeDeployment
 	err := r.Get(ctx, req.NamespacedName, &kustomizeDeployment)
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
 
-	r.Logger.Debug("reconcile kustomize deployment", "name", kustomizeDeployment.Name)
+	logger.Debug("reconcile kustomize deployment")
 
 	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, &kustomizeDeployment)
@@ -45,7 +47,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, err
 		}
 
-		r.Logger.Debug("created repository for kustomized deployment", "path", repoPath)
+		logger.Debug("created repository for kustomized deployment", "path", repoPath)
 
 		patch := client.MergeFrom(kustomizeDeployment.DeepCopy())
 
