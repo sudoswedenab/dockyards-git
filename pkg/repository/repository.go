@@ -2,12 +2,13 @@ package repository
 
 import (
 	"errors"
+	"log/slog"
 	"path"
 	"strings"
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
-	// "github.com/containers/image/v5/docker/reference"
+	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
@@ -27,7 +28,37 @@ var (
 	ErrDeploymentNameEmpty            = errors.New("deployment name must not be empty")
 	ErrDeploymentImageEmpty           = errors.New("deployment image must not be empty")
 	ErrDeploymentKustomizationMissing = errors.New("no kustomization.yaml file provided")
+	ErrDeploymentUIDEmpty             = errors.New("deployment uid must not be empty")
 )
+
+type GitRepository struct {
+	GitProjectRoot string
+	Logger         *slog.Logger
+}
+
+func isNotFound(err error) bool {
+	return errors.Is(err, plumbing.ErrReferenceNotFound)
+}
+
+func ignoreNotFound(err error) error {
+	if isNotFound(err) {
+		return nil
+	}
+
+	return err
+}
+
+func isNotExists(err error) bool {
+	return errors.Is(err, git.ErrRepositoryNotExists)
+}
+
+func ignoreNotExists(err error) error {
+	if isNotExists(err) {
+		return nil
+	}
+
+	return err
+}
 
 func createContainerImageDeployment(containerImageDeployment *v1alpha1.ContainerImageDeployment) (*appsv1.Deployment, error) {
 	containerPort := int32(80)
@@ -107,7 +138,39 @@ func createContainerImageService(containerImageDeployment *v1alpha1.ContainerIma
 	return &service, nil
 }
 
-func CreateContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment, gitProjectRoot string) (string, error) {
+func (r *GitRepository) OpenOrInitRepository(repoPath string, worktree billy.Filesystem) (*git.Repository, error) {
+	fs := osfs.New(repoPath)
+	storage := filesystem.NewStorage(fs, cache.NewObjectLRUDefault())
+
+	repo, err := git.Open(storage, worktree)
+	if ignoreNotExists(err) != nil {
+		return nil, err
+	}
+
+	if isNotExists(err) {
+		initOptions := git.InitOptions{
+			DefaultBranch: plumbing.Main,
+		}
+
+		_, err := git.InitWithOptions(storage, nil, initOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		repo, err = git.Open(storage, worktree)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return repo, nil
+}
+
+func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment) (string, error) {
+	if string(containerImageDeployment.UID) == "" {
+		return "", ErrDeploymentUIDEmpty
+	}
+
 	appsv1Deployment, err := createContainerImageDeployment(containerImageDeployment)
 	if err != nil {
 		return "", err
@@ -128,16 +191,11 @@ func CreateContainerImageRepository(containerImageDeployment *v1alpha1.Container
 		return "", err
 	}
 
-	repoPath := path.Join(gitProjectRoot, "deployments", string(containerImageDeployment.UID))
+	repoPath := path.Join(r.GitProjectRoot, "deployments", string(containerImageDeployment.UID))
 
-	fs := osfs.New(repoPath)
-	storage := filesystem.NewStorage(fs, cache.NewObjectLRUDefault())
-	initOptions := git.InitOptions{
-		DefaultBranch: plumbing.Main,
-	}
 	mfs := memfs.New()
 
-	repo, err := git.InitWithOptions(storage, mfs, initOptions)
+	repo, err := r.OpenOrInitRepository(repoPath, mfs)
 	if err != nil {
 		return "", err
 	}
@@ -158,7 +216,6 @@ func CreateContainerImageRepository(containerImageDeployment *v1alpha1.Container
 	}
 
 	file.Close()
-	worktree.Add("deployment.yaml")
 
 	file, err = mfs.Create("service.yaml")
 	if err != nil {
@@ -171,25 +228,51 @@ func CreateContainerImageRepository(containerImageDeployment *v1alpha1.Container
 	}
 
 	file.Close()
-	worktree.Add("service.yaml")
 
-	_, err = worktree.Commit("Add deployment", &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  "dockyards",
-			Email: "git@dockyards.io",
-			When:  time.Now(),
-		},
-	})
-
+	status, err := worktree.Status()
 	if err != nil {
 		return "", err
 	}
 
-	repoPath = strings.TrimPrefix(repoPath, gitProjectRoot)
+	if !status.IsClean() {
+		for file := range status {
+			_, err := worktree.Add(file)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		_, err := repo.Head()
+		if ignoreNotFound(err) != nil {
+			return "", err
+		}
+
+		msg := "Update container image manifests"
+		if isNotFound(err) {
+			msg = "Add container image manifests"
+		}
+
+		_, err = worktree.Commit(msg, &git.CommitOptions{
+			Author: &object.Signature{
+				Name:  "dockyards-git",
+				Email: "git@dockyards.io",
+				When:  time.Now(),
+			},
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+
+	repoPath = strings.TrimPrefix(repoPath, r.GitProjectRoot)
 	return repoPath, nil
 }
 
-func CreateKustomizeRepository(kustomizeDeployment *v1alpha1.KustomizeDeployment, gitProjectRoot string) (string, error) {
+func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *v1alpha1.KustomizeDeployment) (string, error) {
+	if string(kustomizeDeployment.UID) == "" {
+		return "", ErrDeploymentUIDEmpty
+	}
+
 	kustomize := kustomizeDeployment.Spec.Kustomize
 
 	_, hasKustomization := kustomize["kustomization.yaml"]
@@ -197,26 +280,21 @@ func CreateKustomizeRepository(kustomizeDeployment *v1alpha1.KustomizeDeployment
 		return "", ErrDeploymentKustomizationMissing
 	}
 
-	repoPath := path.Join(gitProjectRoot, "deployments", string(kustomizeDeployment.UID))
+	repoPath := path.Join(r.GitProjectRoot, "deployments", string(kustomizeDeployment.UID))
 
-	fs := osfs.New(repoPath)
-	storage := filesystem.NewStorage(fs, cache.NewObjectLRUDefault())
-	initOptions := git.InitOptions{
-		DefaultBranch: plumbing.Main,
-	}
 	mfs := memfs.New()
 
-	repo, err := git.InitWithOptions(storage, mfs, initOptions)
+	repo, err := r.OpenOrInitRepository(repoPath, mfs)
 	if err != nil {
 		return "", err
 	}
 
-	worktree, err := repo.Worktree()
+	w, err := repo.Worktree()
 	if err != nil {
 		return "", err
 	}
 
-	for filename, content := range kustomize {
+	for filename, content := range kustomizeDeployment.Spec.Kustomize {
 		file, err := mfs.Create(filename)
 		if err != nil {
 			return "", err
@@ -226,24 +304,43 @@ func CreateKustomizeRepository(kustomizeDeployment *v1alpha1.KustomizeDeployment
 		if err != nil {
 			return "", err
 		}
-
-		file.Close()
-
-		worktree.Add(filename)
 	}
 
-	_, err = worktree.Commit("Add kustomize", &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  "dockyards",
-			Email: "git@dockyards.io",
-			When:  time.Now(),
-		},
-	})
-
+	status, err := w.Status()
 	if err != nil {
 		return "", err
 	}
 
-	repoPath = strings.TrimPrefix(repoPath, gitProjectRoot)
+	if !status.IsClean() {
+		for file := range status {
+			_, err := w.Add(file)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		_, err := repo.Head()
+		if ignoreNotFound(err) != nil {
+			return "", err
+		}
+
+		msg := "Update kustomize manifests"
+		if isNotFound(err) {
+			msg = "Add kustomize manifests"
+		}
+
+		_, err = w.Commit(msg, &git.CommitOptions{
+			Author: &object.Signature{
+				Name:  "dockyards-git",
+				Email: "git@dockyards.io",
+				When:  time.Now(),
+			},
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+
+	repoPath = strings.TrimPrefix(repoPath, r.GitProjectRoot)
 	return repoPath, nil
 }
