@@ -8,6 +8,8 @@ import (
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -18,9 +20,8 @@ import (
 
 type ContainerImageDeploymentReconciler struct {
 	client.Client
-
-	Logger         *slog.Logger
-	GitProjectRoot string
+	Logger     *slog.Logger
+	Repository *repository.GitRepository
 }
 
 func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -41,30 +42,57 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	if !controllerutil.ContainsFinalizer(&containerImageDeployment, finalizer) {
 	}
 
-	if containerImageDeployment.Status.RepositoryURL == "" {
-		repoPath, err := repository.CreateContainerImageRepository(&containerImageDeployment, r.GitProjectRoot)
-		if err != nil {
-			return ctrl.Result{}, err
+	repoPath, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment)
+	if err != nil {
+		gitRepositoryReadyCondition := metav1.Condition{
+			Type:    GitRepositoryReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  ReconciliationFailedReason,
+			Message: err.Error(),
 		}
-
-		logger.Debug("created repository for container image deployment", "path", repoPath)
 
 		patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
-		u := url.URL{
-			Scheme: "http",
-			Host:   "dockyards-git.dockyards",
-			Path:   repoPath,
-		}
-
-		containerImageDeployment.Status.RepositoryURL = u.String()
+		meta.SetStatusCondition(&containerImageDeployment.Status.Conditions, gitRepositoryReadyCondition)
 
 		err = r.Status().Patch(ctx, &containerImageDeployment, patch)
 		if err != nil {
-			logger.Error("error patching kustomized deployment", "err", err)
+			r.Logger.Error("error patching container image deployment", "err", err)
 
 			return ctrl.Result{}, err
 		}
+
+		return ctrl.Result{}, err
+	}
+
+	logger.Debug("reconciled repository for container image deployment")
+
+	patch := client.MergeFrom(containerImageDeployment.DeepCopy())
+
+	u := url.URL{
+		Scheme: "http",
+		Host:   "dockyards-git.dockyards",
+		Path:   repoPath,
+	}
+
+	if containerImageDeployment.Status.RepositoryURL != u.String() {
+		containerImageDeployment.Status.RepositoryURL = u.String()
+	}
+
+	gitRepositoryReadyCondition := metav1.Condition{
+		Type:               GitRepositoryReadyCondition,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: containerImageDeployment.Generation,
+		Reason:             ReconciliationSucceededReason,
+	}
+
+	meta.SetStatusCondition(&containerImageDeployment.Status.Conditions, gitRepositoryReadyCondition)
+
+	err = r.Status().Patch(ctx, &containerImageDeployment, patch)
+	if err != nil {
+		logger.Error("error patching kustomized deployment", "err", err)
+
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

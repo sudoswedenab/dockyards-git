@@ -11,6 +11,7 @@ import (
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/internal/controller"
+	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/go-logr/logr/slogr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -54,10 +55,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controller.KustomizeDeploymentReconciler{
-		Client:         m.GetClient(),
-		Logger:         logger,
+	repository := repository.GitRepository{
 		GitProjectRoot: gitProjectRoot,
+		Logger:         logger,
+	}
+
+	err = (&controller.KustomizeDeploymentReconciler{
+		Client:     m.GetClient(),
+		Logger:     logger,
+		Repository: &repository,
 	}).SetupWithManager(ctx, m)
 	if err != nil {
 		logger.Error("error creating new kustomize controller", "err", err)
@@ -66,9 +72,9 @@ func main() {
 	}
 
 	err = (&controller.ContainerImageDeploymentReconciler{
-		Client:         m.GetClient(),
-		Logger:         logger,
-		GitProjectRoot: gitProjectRoot,
+		Client:     m.GetClient(),
+		Logger:     logger,
+		Repository: &repository,
 	}).SetupWithManager(ctx, m)
 	if err != nil {
 		logger.Error("error creating container image controller", "err", err)

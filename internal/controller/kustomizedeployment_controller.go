@@ -8,6 +8,8 @@ import (
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -18,9 +20,8 @@ import (
 
 type KustomizeDeploymentReconciler struct {
 	client.Client
-
-	Logger         *slog.Logger
-	GitProjectRoot string
+	Logger     *slog.Logger
+	Repository *repository.GitRepository
 }
 
 func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -41,23 +42,18 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	if !controllerutil.ContainsFinalizer(&kustomizeDeployment, finalizer) {
 	}
 
-	if kustomizeDeployment.Status.RepositoryURL == "" {
-		repoPath, err := repository.CreateKustomizeRepository(&kustomizeDeployment, r.GitProjectRoot)
-		if err != nil {
-			return ctrl.Result{}, err
+	repoPath, err := r.Repository.ReconcileKustomizeRepository(&kustomizeDeployment)
+	if err != nil {
+		gitRepositoryReadyCondition := metav1.Condition{
+			Type:    GitRepositoryReadyCondition,
+			Status:  metav1.ConditionFalse,
+			Reason:  ReconciliationFailedReason,
+			Message: err.Error(),
 		}
-
-		logger.Debug("created repository for kustomized deployment", "path", repoPath)
 
 		patch := client.MergeFrom(kustomizeDeployment.DeepCopy())
 
-		u := url.URL{
-			Scheme: "http",
-			Host:   "dockyards-git.dockyards",
-			Path:   repoPath,
-		}
-
-		kustomizeDeployment.Status.RepositoryURL = u.String()
+		meta.SetStatusCondition(&kustomizeDeployment.Status.Conditions, gitRepositoryReadyCondition)
 
 		err = r.Status().Patch(ctx, &kustomizeDeployment, patch)
 		if err != nil {
@@ -65,6 +61,38 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 			return ctrl.Result{}, err
 		}
+
+		return ctrl.Result{}, nil
+	}
+
+	logger.Debug("reconciled repository for kustomized deployment", "path", repoPath)
+
+	patch := client.MergeFrom(kustomizeDeployment.DeepCopy())
+
+	u := url.URL{
+		Scheme: "http",
+		Host:   "dockyards-git.dockyards",
+		Path:   repoPath,
+	}
+
+	if kustomizeDeployment.Status.RepositoryURL != u.String() {
+		kustomizeDeployment.Status.RepositoryURL = u.String()
+	}
+
+	gitRepositoryReadyCondition := metav1.Condition{
+		Type:               GitRepositoryReadyCondition,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: kustomizeDeployment.Generation,
+		Reason:             ReconciliationSucceededReason,
+	}
+
+	meta.SetStatusCondition(&kustomizeDeployment.Status.Conditions, gitRepositoryReadyCondition)
+
+	err = r.Status().Patch(ctx, &kustomizeDeployment, patch)
+	if err != nil {
+		r.Logger.Error("error patching kustomized deployment", "err", err)
+
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
