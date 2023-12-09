@@ -21,8 +21,10 @@ import (
 func main() {
 	var gitProjectRoot string
 	var gitCGIPath string
+	var repositoryHostname string
 	flag.StringVar(&gitProjectRoot, "git-project-root", "/tmp/dockyards-git", "git project root")
 	flag.StringVar(&gitCGIPath, "git-cgi-path", "/usr/libexec/git-core/git-http-backend", "git cgi path")
+	flag.StringVar(&repositoryHostname, "repository-hostname", "localhost:9002", "repository hostname")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -58,6 +60,7 @@ func main() {
 	repository := repository.GitRepository{
 		GitProjectRoot: gitProjectRoot,
 		Logger:         logger,
+		Hostname:       repositoryHostname,
 	}
 
 	err = (&controller.KustomizeDeploymentReconciler{

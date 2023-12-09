@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 	"log/slog"
+	"net/url"
 	"path"
 	"strings"
 	"time"
@@ -34,6 +35,7 @@ var (
 type GitRepository struct {
 	GitProjectRoot string
 	Logger         *slog.Logger
+	Hostname       string
 }
 
 func isNotFound(err error) bool {
@@ -166,6 +168,18 @@ func (r *GitRepository) OpenOrInitRepository(repoPath string, worktree billy.Fil
 	return repo, nil
 }
 
+func (r *GitRepository) GetRepositoryURL(repoPath string) string {
+	p := strings.TrimPrefix(repoPath, r.GitProjectRoot)
+
+	u := url.URL{
+		Scheme: "http",
+		Host:   r.Hostname,
+		Path:   p,
+	}
+
+	return u.String()
+}
+
 func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment) (string, error) {
 	if string(containerImageDeployment.UID) == "" {
 		return "", ErrDeploymentUIDEmpty
@@ -264,8 +278,8 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 		}
 	}
 
-	repoPath = strings.TrimPrefix(repoPath, r.GitProjectRoot)
-	return repoPath, nil
+	repositoryURL := r.GetRepositoryURL(repoPath)
+	return repositoryURL, nil
 }
 
 func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *v1alpha1.KustomizeDeployment) (string, error) {
@@ -341,6 +355,6 @@ func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *v1alph
 		}
 	}
 
-	repoPath = strings.TrimPrefix(repoPath, r.GitProjectRoot)
-	return repoPath, nil
+	repositoryURL := r.GetRepositoryURL(repoPath)
+	return repositoryURL, nil
 }

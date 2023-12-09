@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"net/url"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
@@ -42,7 +41,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	if !controllerutil.ContainsFinalizer(&containerImageDeployment, finalizer) {
 	}
 
-	repoPath, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment)
+	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment)
 	if err != nil {
 		gitRepositoryReadyCondition := metav1.Condition{
 			Type:    GitRepositoryReadyCondition,
@@ -69,14 +68,8 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
-	u := url.URL{
-		Scheme: "http",
-		Host:   "dockyards-git.dockyards",
-		Path:   repoPath,
-	}
-
-	if containerImageDeployment.Status.RepositoryURL != u.String() {
-		containerImageDeployment.Status.RepositoryURL = u.String()
+	if containerImageDeployment.Status.RepositoryURL != repositoryURL {
+		containerImageDeployment.Status.RepositoryURL = repositoryURL
 	}
 
 	gitRepositoryReadyCondition := metav1.Condition{

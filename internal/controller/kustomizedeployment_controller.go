@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"net/url"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
@@ -42,7 +41,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	if !controllerutil.ContainsFinalizer(&kustomizeDeployment, finalizer) {
 	}
 
-	repoPath, err := r.Repository.ReconcileKustomizeRepository(&kustomizeDeployment)
+	repositoryURL, err := r.Repository.ReconcileKustomizeRepository(&kustomizeDeployment)
 	if err != nil {
 		gitRepositoryReadyCondition := metav1.Condition{
 			Type:    GitRepositoryReadyCondition,
@@ -57,7 +56,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		err = r.Status().Patch(ctx, &kustomizeDeployment, patch)
 		if err != nil {
-			r.Logger.Error("error patching kustomized deployment", "err", err)
+			r.Logger.Error("error patching kustomize deployment", "err", err)
 
 			return ctrl.Result{}, err
 		}
@@ -65,18 +64,12 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	logger.Debug("reconciled repository for kustomized deployment", "path", repoPath)
+	logger.Debug("reconciled repository for kustomize deployment")
 
 	patch := client.MergeFrom(kustomizeDeployment.DeepCopy())
 
-	u := url.URL{
-		Scheme: "http",
-		Host:   "dockyards-git.dockyards",
-		Path:   repoPath,
-	}
-
-	if kustomizeDeployment.Status.RepositoryURL != u.String() {
-		kustomizeDeployment.Status.RepositoryURL = u.String()
+	if kustomizeDeployment.Status.RepositoryURL != repositoryURL {
+		kustomizeDeployment.Status.RepositoryURL = repositoryURL
 	}
 
 	gitRepositoryReadyCondition := metav1.Condition{
@@ -90,7 +83,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	err = r.Status().Patch(ctx, &kustomizeDeployment, patch)
 	if err != nil {
-		r.Logger.Error("error patching kustomized deployment", "err", err)
+		r.Logger.Error("error patching kustomize deployment", "err", err)
 
 		return ctrl.Result{}, err
 	}
