@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
@@ -14,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments,verbs=get;list;patch;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments/status,verbs=patch
 
 type ContainerImageDeploymentReconciler struct {
@@ -28,8 +27,8 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	var containerImageDeployment v1alpha1.ContainerImageDeployment
 	err := r.Get(ctx, req.NamespacedName, &containerImageDeployment)
-	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	logger.Debug("reconcile container image deployment")
@@ -39,10 +38,24 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if !controllerutil.ContainsFinalizer(&containerImageDeployment, finalizer) {
+		logger.Debug("reconcile missing finalizer", "finalizer", finalizer)
+
+		patch := client.MergeFrom(containerImageDeployment.DeepCopy())
+
+		controllerutil.AddFinalizer(&containerImageDeployment, finalizer)
+
+		err := r.Patch(ctx, &containerImageDeployment, patch)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment)
 	if err != nil {
+		logger.Error("error reconciling repository for container image deployment", "err", err)
+
 		gitRepositoryReadyCondition := metav1.Condition{
 			Type:    GitRepositoryReadyCondition,
 			Status:  metav1.ConditionFalse,
@@ -83,7 +96,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	err = r.Status().Patch(ctx, &containerImageDeployment, patch)
 	if err != nil {
-		logger.Error("error patching kustomized deployment", "err", err)
+		logger.Error("error patching container image deployment", "err", err)
 
 		return ctrl.Result{}, err
 	}
@@ -92,7 +105,31 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 }
 
 func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context, containerImageDeployment *v1alpha1.ContainerImageDeployment) (ctrl.Result, error) {
-	return ctrl.Result{}, errors.New("not implemented")
+	logger := r.Logger.With("name", containerImageDeployment.Name, "namespace", containerImageDeployment.Namespace)
+
+	err := r.Repository.DeleteRepository(containerImageDeployment)
+	if err != nil {
+		logger.Error("error deleting repository", "err", err)
+
+		return ctrl.Result{}, err
+	}
+
+	logger.Debug("deleted repository for container image deployment")
+
+	patch := client.MergeFrom(containerImageDeployment.DeepCopy())
+
+	controllerutil.RemoveFinalizer(containerImageDeployment, finalizer)
+
+	err = r.Patch(ctx, containerImageDeployment, patch)
+	if err != nil {
+		logger.Error("error patching container image deployment", "err", err)
+
+		return ctrl.Result{}, err
+	}
+
+	logger.Debug("deleted container image deployment")
+
+	return ctrl.Result{}, nil
 }
 
 func (r *ContainerImageDeploymentReconciler) SetupWithManager(ctx context.Context, manager ctrl.Manager) error {
