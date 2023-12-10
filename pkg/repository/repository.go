@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -357,4 +359,31 @@ func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *v1alph
 
 	repositoryURL := r.GetRepositoryURL(repoPath)
 	return repositoryURL, nil
+}
+
+func (r *GitRepository) DeleteRepository(object client.Object) error {
+	uid := string(object.GetUID())
+	if uid == "" {
+		return ErrDeploymentUIDEmpty
+	}
+
+	repoPath := path.Join(r.GitProjectRoot, "deployments", string(object.GetUID()))
+
+	_, err := git.PlainOpen(repoPath)
+	if ignoreNotExists(err) != nil {
+		return err
+	}
+
+	if isNotExists(err) {
+		r.Logger.Warn("delete non existing repository", "path", repoPath)
+
+		return nil
+	}
+
+	err = os.RemoveAll(repoPath)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
