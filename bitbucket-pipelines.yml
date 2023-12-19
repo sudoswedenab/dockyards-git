@@ -6,8 +6,9 @@ definitions:
       name: environment
       script:
       - git fetch --tags
-      - echo "export VERSION=$BITBUCKET_BRANCH-$(git describe --always --dirty)-$(date +%s)" >> env.sh
+      - echo "export VERSION=$(git branch --show-current)-$(git rev-parse --short HEAD)-$(date +%s)" >> env.sh
       - echo "export IMAGE=075899289117.dkr.ecr.eu-north-1.amazonaws.com/dockyards-git" >> env.sh
+      - echo "export REVISION=$(git branch --show-current)@$(git rev-parse --show-object-format):$(git rev-parse HEAD)" >> env.sh
       - cat env.sh
       artifacts:
       - env.sh
@@ -23,14 +24,17 @@ definitions:
       name: build
       script:
       - source env.sh
+      - go install cuelang.org/go/cmd/cue@v0.7.1
       - docker build . --file Containerfile --tag dockyards-git
       - docker save dockyards-git --output dockyards-git.tar
+      - cue eval hack/kustomization.cue --inject "name=$IMAGE" --inject "tag=$VERSION" --out yaml --outfile config/kustomization.yaml
       services:
       - docker
       caches:
       - docker
       artifacts:
       - dockyards-git.tar
+      - config/kustomization.yaml
   - step: &push
       name: push
       script:
@@ -53,6 +57,14 @@ definitions:
       - aws ecr get-login-password --profile bitbucket > ecr-login-password
       artifacts:
       - ecr-login-password
+  - step: &flux
+      name: flux
+      image: ghcr.io/fluxcd/flux-cli:v2.2.1
+      script:
+      - source env.sh
+      - flux push artifact "oci://$IMAGE:$VERSION-manifests" --path config --source "$BITBUCKET_GIT_HTTP_ORIGIN" --revision "$VERSION" --creds "AWS:$(cat ecr-login-password)"
+      services:
+      - docker
 
 pipelines:
   default:
@@ -61,3 +73,4 @@ pipelines:
   - step: *build
   - step: *ecr-login
   - step: *push
+  - step: *flux
