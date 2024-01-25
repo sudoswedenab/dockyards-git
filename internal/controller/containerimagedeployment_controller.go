@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 
+	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -14,6 +15,7 @@ import (
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments,verbs=get;list;patch;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments/status,verbs=patch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;watch
 
 type ContainerImageDeploymentReconciler struct {
 	client.Client
@@ -35,6 +37,19 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return r.reconcileDelete(ctx, &containerImageDeployment)
 	}
 
+	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &containerImageDeployment)
+	if err != nil {
+		logger.Error(err, "error getting owner deployment")
+
+		return ctrl.Result{}, err
+	}
+
+	if ownerDeployment == nil {
+		logger.Info("ignoring container image without owner deployment")
+
+		return ctrl.Result{}, err
+	}
+
 	if !controllerutil.ContainsFinalizer(&containerImageDeployment, finalizer) {
 		patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
@@ -48,7 +63,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment)
+	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment, ownerDeployment)
 	if err != nil {
 		logger.Error(err, "error reconciling repository for container image deployment")
 

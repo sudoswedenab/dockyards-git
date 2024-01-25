@@ -11,6 +11,7 @@ rules:
   verbs:
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - dockyards.io
@@ -21,10 +22,19 @@ rules:
 - apiGroups:
   - dockyards.io
   resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - dockyards.io
+  resources:
   - kustomizedeployments
   verbs:
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - dockyards.io
