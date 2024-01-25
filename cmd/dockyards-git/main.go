@@ -12,7 +12,7 @@ import (
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/internal/controller"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
-	"github.com/go-logr/logr/slogr"
+	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -31,9 +31,9 @@ func main() {
 	defer stop()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	logr := slogr.NewLogr(logger.Handler())
+	slogr := logr.FromSlogHandler(logger.Handler())
 
-	ctrl.SetLogger(logr)
+	ctrl.SetLogger(slogr)
 
 	cfg, err := config.GetConfig()
 	if err != nil {

@@ -6,7 +6,7 @@ require (
 	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20231207131538-bc242c9f808f
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.9.0
-	github.com/go-logr/logr v1.3.0
+	github.com/go-logr/logr v1.4.1
 	k8s.io/api v0.28.2
 	k8s.io/apimachinery v0.28.2
 	sigs.k8s.io/controller-runtime v0.16.2
