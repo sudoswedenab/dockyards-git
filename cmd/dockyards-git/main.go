@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 
-	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/controller"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/go-logr/logr"
@@ -45,14 +44,6 @@ func main() {
 	m, err := manager.New(cfg, manager.Options{})
 	if err != nil {
 		logger.Error("error creating new manager", "err", err)
-
-		os.Exit(1)
-	}
-
-	scheme := m.GetScheme()
-	err = v1alpha1.AddToScheme(scheme)
-	if err != nil {
-		logger.Error("error adding v1alpha1 to scheme", "err", err)
 
 		os.Exit(1)
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +25,7 @@ type KustomizeDeploymentReconciler struct {
 func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := r.Logger.With("name", req.Name, "namespace", req.Namespace)
 
-	var kustomizeDeployment v1alpha1.KustomizeDeployment
+	var kustomizeDeployment dockyardsv1.KustomizeDeployment
 	err := r.Get(ctx, req.NamespacedName, &kustomizeDeployment)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -104,7 +104,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kustomizeDeployment *v1alpha1.KustomizeDeployment) (ctrl.Result, error) {
+func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kustomizeDeployment *dockyardsv1.KustomizeDeployment) (ctrl.Result, error) {
 	logger := r.Logger.With("name", kustomizeDeployment.Name, "namespace", kustomizeDeployment.Namespace)
 
 	err := r.Repository.DeleteRepository(kustomizeDeployment)
@@ -132,8 +132,12 @@ func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kus
 	return ctrl.Result{}, nil
 }
 
-func (r *KustomizeDeploymentReconciler) SetupWithManager(ctx context.Context, manager ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(manager).For(&v1alpha1.KustomizeDeployment{}).Complete(r)
+func (r *KustomizeDeploymentReconciler) SetupWithManager(ctx context.Context, m ctrl.Manager) error {
+	scheme := m.GetScheme()
+
+	_ = dockyardsv1.AddToScheme(scheme)
+
+	err := ctrl.NewControllerManagedBy(m).For(&dockyardsv1.KustomizeDeployment{}).Complete(r)
 	if err != nil {
 		return err
 	}

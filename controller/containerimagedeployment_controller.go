@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,7 +27,7 @@ type ContainerImageDeploymentReconciler struct {
 func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
-	var containerImageDeployment v1alpha1.ContainerImageDeployment
+	var containerImageDeployment dockyardsv1.ContainerImageDeployment
 	err := r.Get(ctx, req.NamespacedName, &containerImageDeployment)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -132,7 +132,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	return ctrl.Result{}, nil
 }
 
-func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context, containerImageDeployment *v1alpha1.ContainerImageDeployment) (ctrl.Result, error) {
+func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context, containerImageDeployment *dockyardsv1.ContainerImageDeployment) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
 	err := r.Repository.DeleteRepository(containerImageDeployment)
@@ -158,8 +158,12 @@ func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context
 	return ctrl.Result{}, nil
 }
 
-func (r *ContainerImageDeploymentReconciler) SetupWithManager(ctx context.Context, manager ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(manager).For(&v1alpha1.ContainerImageDeployment{}).Complete(r)
+func (r *ContainerImageDeploymentReconciler) SetupWithManager(ctx context.Context, m ctrl.Manager) error {
+	scheme := m.GetScheme()
+
+	_ = dockyardsv1.AddToScheme(scheme)
+
+	err := ctrl.NewControllerManagedBy(m).For(&dockyardsv1.ContainerImageDeployment{}).Complete(r)
 	if err != nil {
 		return err
 	}

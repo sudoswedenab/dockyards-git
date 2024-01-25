@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/osfs"
@@ -64,7 +64,7 @@ func ignoreNotExists(err error) error {
 	return err
 }
 
-func createContainerImageDeployment(containerImageDeployment *v1alpha1.ContainerImageDeployment, credential *corev1.Secret) (*appsv1.Deployment, error) {
+func createContainerImageDeployment(containerImageDeployment *dockyardsv1.ContainerImageDeployment, credential *corev1.Secret) (*appsv1.Deployment, error) {
 	containerPort := int32(80)
 	if containerImageDeployment.Spec.Port != 0 {
 		containerPort = containerImageDeployment.Spec.Port
@@ -123,7 +123,7 @@ func createContainerImageDeployment(containerImageDeployment *v1alpha1.Container
 	return &d, nil
 }
 
-func createContainerImageService(containerImageDeployment *v1alpha1.ContainerImageDeployment) (*corev1.Service, error) {
+func createContainerImageService(containerImageDeployment *dockyardsv1.ContainerImageDeployment) (*corev1.Service, error) {
 	service := corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -150,7 +150,7 @@ func createContainerImageService(containerImageDeployment *v1alpha1.ContainerIma
 	return &service, nil
 }
 
-func createDeploymentNamespace(deployment *v1alpha1.Deployment) (*corev1.Namespace, error) {
+func createDeploymentNamespace(deployment *dockyardsv1.Deployment) (*corev1.Namespace, error) {
 	namespace := corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -204,7 +204,7 @@ func (r *GitRepository) GetRepositoryURL(repoPath string) string {
 	return u.String()
 }
 
-func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment, ownerDeployment *v1alpha1.Deployment, credential *corev1.Secret) (string, error) {
+func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *dockyardsv1.ContainerImageDeployment, ownerDeployment *dockyardsv1.Deployment, credential *corev1.Secret) (string, error) {
 	if string(containerImageDeployment.UID) == "" {
 		return "", ErrDeploymentUIDEmpty
 	}
@@ -354,7 +354,7 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 	return repositoryURL, nil
 }
 
-func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *v1alpha1.KustomizeDeployment) (string, error) {
+func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *dockyardsv1.KustomizeDeployment) (string, error) {
 	if string(kustomizeDeployment.UID) == "" {
 		return "", ErrDeploymentUIDEmpty
 	}
