@@ -76,7 +76,6 @@ func main() {
 
 	err = (&controller.ContainerImageDeploymentReconciler{
 		Client:     m.GetClient(),
-		Logger:     logger,
 		Repository: &repository,
 	}).SetupWithManager(ctx, m)
 	if err != nil {

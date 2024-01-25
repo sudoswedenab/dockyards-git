@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"log/slog"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
@@ -18,12 +17,11 @@ import (
 
 type ContainerImageDeploymentReconciler struct {
 	client.Client
-	Logger     *slog.Logger
 	Repository *repository.GitRepository
 }
 
 func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Logger.With("name", req.Name, "namespace", req.Namespace)
+	logger := ctrl.LoggerFrom(ctx)
 
 	var containerImageDeployment v1alpha1.ContainerImageDeployment
 	err := r.Get(ctx, req.NamespacedName, &containerImageDeployment)
@@ -31,15 +29,13 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Debug("reconcile container image deployment")
+	logger.Info("reconcile container image deployment")
 
 	if !containerImageDeployment.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, &containerImageDeployment)
 	}
 
 	if !controllerutil.ContainsFinalizer(&containerImageDeployment, finalizer) {
-		logger.Debug("reconcile missing finalizer", "finalizer", finalizer)
-
 		patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
 		controllerutil.AddFinalizer(&containerImageDeployment, finalizer)
@@ -49,12 +45,12 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 			return ctrl.Result{}, err
 		}
 
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 	}
 
 	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment)
 	if err != nil {
-		logger.Error("error reconciling repository for container image deployment", "err", err)
+		logger.Error(err, "error reconciling repository for container image deployment")
 
 		gitRepositoryReadyCondition := metav1.Condition{
 			Type:    GitRepositoryReadyCondition,
@@ -69,7 +65,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 		err = r.Status().Patch(ctx, &containerImageDeployment, patch)
 		if err != nil {
-			r.Logger.Error("error patching container image deployment", "err", err)
+			logger.Error(err, "error patching status")
 
 			return ctrl.Result{}, err
 		}
@@ -77,7 +73,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, err
 	}
 
-	logger.Debug("reconciled repository for container image deployment")
+	logger.Info("reconciled repository for container image deployment")
 
 	patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
@@ -96,7 +92,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	err = r.Status().Patch(ctx, &containerImageDeployment, patch)
 	if err != nil {
-		logger.Error("error patching container image deployment", "err", err)
+		logger.Error(err, "error patching container image deployment")
 
 		return ctrl.Result{}, err
 	}
@@ -105,16 +101,16 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 }
 
 func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context, containerImageDeployment *v1alpha1.ContainerImageDeployment) (ctrl.Result, error) {
-	logger := r.Logger.With("name", containerImageDeployment.Name, "namespace", containerImageDeployment.Namespace)
+	logger := ctrl.LoggerFrom(ctx)
 
 	err := r.Repository.DeleteRepository(containerImageDeployment)
 	if err != nil {
-		logger.Error("error deleting repository", "err", err)
+		logger.Error(err, "error deleting repository")
 
 		return ctrl.Result{}, err
 	}
 
-	logger.Debug("deleted repository for container image deployment")
+	logger.Info("deleted repository for container image deployment")
 
 	patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
@@ -122,12 +118,10 @@ func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context
 
 	err = r.Patch(ctx, containerImageDeployment, patch)
 	if err != nil {
-		logger.Error("error patching container image deployment", "err", err)
+		logger.Error(err, "error patching container image deployment")
 
 		return ctrl.Result{}, err
 	}
-
-	logger.Debug("deleted container image deployment")
 
 	return ctrl.Result{}, nil
 }
