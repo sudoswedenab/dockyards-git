@@ -64,7 +64,7 @@ func ignoreNotExists(err error) error {
 	return err
 }
 
-func createContainerImageDeployment(containerImageDeployment *v1alpha1.ContainerImageDeployment) (*appsv1.Deployment, error) {
+func createContainerImageDeployment(containerImageDeployment *v1alpha1.ContainerImageDeployment, credential *corev1.Secret) (*appsv1.Deployment, error) {
 	containerPort := int32(80)
 	if containerImageDeployment.Spec.Port != 0 {
 		containerPort = containerImageDeployment.Spec.Port
@@ -110,6 +110,14 @@ func createContainerImageDeployment(containerImageDeployment *v1alpha1.Container
 				},
 			},
 		},
+	}
+
+	if credential != nil {
+		d.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{
+			{
+				Name: credential.Name,
+			},
+		}
 	}
 
 	return &d, nil
@@ -196,7 +204,7 @@ func (r *GitRepository) GetRepositoryURL(repoPath string) string {
 	return u.String()
 }
 
-func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment, ownerDeployment *v1alpha1.Deployment) (string, error) {
+func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment, ownerDeployment *v1alpha1.Deployment, credential *corev1.Secret) (string, error) {
 	if string(containerImageDeployment.UID) == "" {
 		return "", ErrDeploymentUIDEmpty
 	}
@@ -211,7 +219,7 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 		return "", err
 	}
 
-	appsv1Deployment, err := createContainerImageDeployment(containerImageDeployment)
+	appsv1Deployment, err := createContainerImageDeployment(containerImageDeployment, credential)
 	if err != nil {
 		return "", err
 	}
@@ -255,6 +263,8 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 		return "", err
 	}
 
+	file.Close()
+
 	file, err = mfs.Create("deployment.yaml")
 	if err != nil {
 		return "", err
@@ -278,6 +288,32 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 	}
 
 	file.Close()
+
+	if credential != nil {
+		secret := corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: credential.Name,
+			},
+			Data: credential.Data,
+		}
+
+		secretYAML, err := yaml.Marshal(secret)
+		if err != nil {
+			return "", err
+		}
+
+		file, err := mfs.Create("secret.yaml")
+		if err != nil {
+			return "", err
+		}
+
+		_, err = file.Write(secretYAML)
+		if err != nil {
+			return "", err
+		}
+
+		file.Close()
+	}
 
 	status, err := worktree.Status()
 	if err != nil {

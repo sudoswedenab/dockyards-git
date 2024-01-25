@@ -6,14 +6,16 @@ import (
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestReconcileContainerImageRepository(t *testing.T) {
 	tt := []struct {
-		name     string
-		existing *v1alpha1.ContainerImageDeployment
-		update   v1alpha1.ContainerImageDeployment
+		name       string
+		existing   *v1alpha1.ContainerImageDeployment
+		update     v1alpha1.ContainerImageDeployment
+		credential *corev1.Secret
 	}{
 		{
 			name: "test missing existing",
@@ -74,6 +76,28 @@ func TestReconcileContainerImageRepository(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "test with credential",
+			update: v1alpha1.ContainerImageDeployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "testing",
+					UID:       "43502059-2e2e-4e9f-bba8-a23b354e2fb9",
+				},
+				Spec: v1alpha1.ContainerImageDeploymentSpec{
+					Image: "test:v1.2.3",
+				},
+			},
+			credential: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "testing",
+				},
+				Data: map[string][]byte{
+					"secret": []byte("test"),
+				},
+			},
+		},
 	}
 
 	for _, tc := range tt {
@@ -94,13 +118,13 @@ func TestReconcileContainerImageRepository(t *testing.T) {
 			}
 
 			if tc.existing != nil {
-				_, err := r.ReconcileContainerImageRepository(tc.existing, &ownerDeployment)
+				_, err := r.ReconcileContainerImageRepository(tc.existing, &ownerDeployment, tc.credential)
 				if err != nil {
 					t.Fatalf("error preparing container image repository: %s", err)
 				}
 			}
 
-			_, err = r.ReconcileContainerImageRepository(&tc.update, &ownerDeployment)
+			_, err = r.ReconcileContainerImageRepository(&tc.update, &ownerDeployment, tc.credential)
 			if err != nil {
 				t.Errorf("error reconciling container image repository: %s", err)
 			}
