@@ -1,5 +1,5 @@
-bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240125122707-a69efd1c1eaa h1:gndUKAcsXiA5O8ZlGIqpwg+kGRyPxRMAROWvvgmfi40=
-bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240125122707-a69efd1c1eaa/go.mod h1:fAPf/0ZQt19CyN3vAvBVK/ZXqTAWPihKikI+0ylvlMg=
+bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240125204305-a8217af90c8f h1:iZM8Cuv6ePwgRApd3qnDrCSmYDAjJ3JccX4O1okoIVc=
+bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240125204305-a8217af90c8f/go.mod h1:fAPf/0ZQt19CyN3vAvBVK/ZXqTAWPihKikI+0ylvlMg=
 dario.cat/mergo v1.0.0 h1:AGCNq9Evsj31mOgNPcLyXc+4PNABt905YmuqPYYpBWk=
 dario.cat/mergo v1.0.0/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 github.com/Microsoft/go-winio v0.5.2/go.mod h1:WpS1mjBmmwHBEWmogvA2mj8546UReBk4v8QkMxJ6pZY=

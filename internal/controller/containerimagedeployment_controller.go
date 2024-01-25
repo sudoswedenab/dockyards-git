@@ -6,6 +6,7 @@ import (
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,6 +17,7 @@ import (
 // +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments,verbs=get;list;patch;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 type ContainerImageDeploymentReconciler struct {
 	client.Client
@@ -63,7 +65,22 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment, ownerDeployment)
+	var credential *corev1.Secret
+	if containerImageDeployment.Spec.CredentialRef != nil {
+		objectKey := client.ObjectKey{
+			Name:      containerImageDeployment.Spec.CredentialRef.Name,
+			Namespace: containerImageDeployment.Namespace,
+		}
+
+		err := r.Get(ctx, objectKey, credential)
+		if err != nil {
+			logger.Error(err, "error getting credential secret")
+
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
+	}
+
+	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment, ownerDeployment, credential)
 	if err != nil {
 		logger.Error(err, "error reconciling repository for container image deployment")
 
