@@ -10,7 +10,7 @@ import (
 	"os/signal"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
-	"bitbucket.org/sudosweden/dockyards-git/internal/controller"
+	"bitbucket.org/sudosweden/dockyards-git/controller"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
