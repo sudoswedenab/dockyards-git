@@ -87,14 +87,20 @@ func TestReconcileContainerImageRepository(t *testing.T) {
 				GitProjectRoot: dirTemp,
 			}
 
+			ownerDeployment := v1alpha1.Deployment{
+				Spec: v1alpha1.DeploymentSpec{
+					TargetNamespace: "testing",
+				},
+			}
+
 			if tc.existing != nil {
-				_, err := r.ReconcileContainerImageRepository(tc.existing)
+				_, err := r.ReconcileContainerImageRepository(tc.existing, &ownerDeployment)
 				if err != nil {
 					t.Fatalf("error preparing container image repository: %s", err)
 				}
 			}
 
-			_, err = r.ReconcileContainerImageRepository(&tc.update)
+			_, err = r.ReconcileContainerImageRepository(&tc.update, &ownerDeployment)
 			if err != nil {
 				t.Errorf("error reconciling container image repository: %s", err)
 			}

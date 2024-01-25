@@ -142,6 +142,20 @@ func createContainerImageService(containerImageDeployment *v1alpha1.ContainerIma
 	return &service, nil
 }
 
+func createDeploymentNamespace(deployment *v1alpha1.Deployment) (*corev1.Namespace, error) {
+	namespace := corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deployment.Spec.TargetNamespace,
+		},
+	}
+
+	return &namespace, nil
+}
+
 func (r *GitRepository) OpenOrInitRepository(repoPath string, worktree billy.Filesystem) (*git.Repository, error) {
 	fs := osfs.New(repoPath)
 	storage := filesystem.NewStorage(fs, cache.NewObjectLRUDefault())
@@ -182,9 +196,19 @@ func (r *GitRepository) GetRepositoryURL(repoPath string) string {
 	return u.String()
 }
 
-func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment) (string, error) {
+func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *v1alpha1.ContainerImageDeployment, ownerDeployment *v1alpha1.Deployment) (string, error) {
 	if string(containerImageDeployment.UID) == "" {
 		return "", ErrDeploymentUIDEmpty
+	}
+
+	namespace, err := createDeploymentNamespace(ownerDeployment)
+	if err != nil {
+		return "", err
+	}
+
+	namespaceYAML, err := yaml.Marshal(namespace)
+	if err != nil {
+		return "", err
 	}
 
 	appsv1Deployment, err := createContainerImageDeployment(containerImageDeployment)
@@ -221,7 +245,17 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 		return "", err
 	}
 
-	file, err := mfs.Create("deployment.yaml")
+	file, err := mfs.Create("namespace.yaml")
+	if err != nil {
+		return "", err
+	}
+
+	_, err = file.Write(namespaceYAML)
+	if err != nil {
+		return "", err
+	}
+
+	file, err = mfs.Create("deployment.yaml")
 	if err != nil {
 		return "", err
 	}
