@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"log/slog"
 
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
@@ -18,12 +17,11 @@ import (
 
 type KustomizeDeploymentReconciler struct {
 	client.Client
-	Logger     *slog.Logger
 	Repository *repository.GitRepository
 }
 
 func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Logger.With("name", req.Name, "namespace", req.Namespace)
+	logger := ctrl.LoggerFrom(ctx)
 
 	var kustomizeDeployment dockyardsv1.KustomizeDeployment
 	err := r.Get(ctx, req.NamespacedName, &kustomizeDeployment)
@@ -31,15 +29,13 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Debug("reconcile kustomize deployment")
+	logger.Info("reconcile kustomize deployment")
 
 	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, &kustomizeDeployment)
 	}
 
 	if !controllerutil.ContainsFinalizer(&kustomizeDeployment, finalizer) {
-		logger.Debug("reconcile missing finalizer", "finalizer", finalizer)
-
 		patch := client.MergeFrom(kustomizeDeployment.DeepCopy())
 
 		controllerutil.AddFinalizer(&kustomizeDeployment, finalizer)
@@ -54,7 +50,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	repositoryURL, err := r.Repository.ReconcileKustomizeRepository(&kustomizeDeployment)
 	if err != nil {
-		logger.Error("error reconciling repository for kustomize deployment", "err", err)
+		logger.Error(err, "error reconciling repository")
 
 		gitRepositoryReadyCondition := metav1.Condition{
 			Type:    GitRepositoryReadyCondition,
@@ -69,15 +65,13 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		err = r.Status().Patch(ctx, &kustomizeDeployment, patch)
 		if err != nil {
-			logger.Error("error patching kustomize deployment", "err", err)
+			logger.Error(err, "error patching status")
 
 			return ctrl.Result{}, err
 		}
 
 		return ctrl.Result{}, nil
 	}
-
-	logger.Debug("reconciled repository for kustomize deployment")
 
 	patch := client.MergeFrom(kustomizeDeployment.DeepCopy())
 
@@ -96,7 +90,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	err = r.Status().Patch(ctx, &kustomizeDeployment, patch)
 	if err != nil {
-		r.Logger.Error("error patching kustomize deployment", "err", err)
+		logger.Error(err, "error patching status")
 
 		return ctrl.Result{}, err
 	}
@@ -105,16 +99,14 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kustomizeDeployment *dockyardsv1.KustomizeDeployment) (ctrl.Result, error) {
-	logger := r.Logger.With("name", kustomizeDeployment.Name, "namespace", kustomizeDeployment.Namespace)
+	logger := ctrl.LoggerFrom(ctx)
 
 	err := r.Repository.DeleteRepository(kustomizeDeployment)
 	if err != nil {
-		logger.Error("error deleting repository", "err", err)
+		logger.Error(err, "error deleting repository")
 
 		return ctrl.Result{}, err
 	}
-
-	logger.Debug("deleted repository for kustomize deployment")
 
 	patch := client.MergeFrom(kustomizeDeployment.DeepCopy())
 
@@ -122,12 +114,12 @@ func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kus
 
 	err = r.Patch(ctx, kustomizeDeployment, patch)
 	if err != nil {
-		logger.Error("error patching kustomize deployment", "err", err)
+		logger.Error(err, "error patching")
 
 		return ctrl.Result{}, err
 	}
 
-	logger.Debug("deleted kustomize deployment")
+	logger.Info("deleted kustomize deployment")
 
 	return ctrl.Result{}, nil
 }

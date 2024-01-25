@@ -56,7 +56,6 @@ func main() {
 
 	err = (&controller.KustomizeDeploymentReconciler{
 		Client:     m.GetClient(),
-		Logger:     logger,
 		Repository: &repository,
 	}).SetupWithManager(ctx, m)
 	if err != nil {
