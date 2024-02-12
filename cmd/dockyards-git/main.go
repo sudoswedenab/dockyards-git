@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log/slog"
 	"net/http"
 	"net/http/cgi"
@@ -12,6 +11,7 @@ import (
 	"bitbucket.org/sudosweden/dockyards-git/controller"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/go-logr/logr"
+	"github.com/spf13/pflag"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -21,10 +21,10 @@ func main() {
 	var gitProjectRoot string
 	var gitCGIPath string
 	var repositoryHostname string
-	flag.StringVar(&gitProjectRoot, "git-project-root", "/tmp/dockyards-git", "git project root")
-	flag.StringVar(&gitCGIPath, "git-cgi-path", "/usr/libexec/git-core/git-http-backend", "git cgi path")
-	flag.StringVar(&repositoryHostname, "repository-hostname", "localhost:9002", "repository hostname")
-	flag.Parse()
+	pflag.StringVar(&gitProjectRoot, "git-project-root", "/tmp/dockyards-git", "git project root")
+	pflag.StringVar(&gitCGIPath, "git-cgi-path", "/usr/libexec/git-core/git-http-backend", "git cgi path")
+	pflag.StringVar(&repositoryHostname, "repository-hostname", "localhost:9002", "repository hostname")
+	pflag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()

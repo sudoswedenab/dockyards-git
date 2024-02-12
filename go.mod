@@ -7,6 +7,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.9.0
 	github.com/go-logr/logr v1.4.1
+	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.28.2
 	k8s.io/apimachinery v0.28.2
 	sigs.k8s.io/controller-runtime v0.16.2
@@ -56,7 +57,6 @@ require (
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/skeema/knownhosts v1.2.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/crypto v0.13.0 // indirect
