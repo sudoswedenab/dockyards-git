@@ -3,7 +3,7 @@ module bitbucket.org/sudosweden/dockyards-git
 go 1.21.3
 
 require (
-	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240125204305-a8217af90c8f
+	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240507200027-2a04486d86c7
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.9.0
 	github.com/go-logr/logr v1.4.1
