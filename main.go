@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/signal"
 
-	"bitbucket.org/sudosweden/dockyards-git/controller"
+	"bitbucket.org/sudosweden/dockyards-git/controllers"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
@@ -54,7 +54,7 @@ func main() {
 		Hostname:       repositoryHostname,
 	}
 
-	err = (&controller.KustomizeDeploymentReconciler{
+	err = (&controllers.KustomizeDeploymentReconciler{
 		Client:     m.GetClient(),
 		Repository: &repository,
 	}).SetupWithManager(ctx, m)
@@ -64,7 +64,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controller.ContainerImageDeploymentReconciler{
+	err = (&controllers.ContainerImageDeploymentReconciler{
 		Client:     m.GetClient(),
 		Repository: &repository,
 	}).SetupWithManager(ctx, m)

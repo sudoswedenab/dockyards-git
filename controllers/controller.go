@@ -1,4 +1,4 @@
-package controller
+package controllers
 
 const (
 	finalizer = "dockyards.io/git-controller"

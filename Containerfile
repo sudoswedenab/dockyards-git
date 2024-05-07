@@ -2,7 +2,7 @@ FROM docker.io/library/golang:1.21.3 AS builder
 COPY . /src
 WORKDIR /src
 ENV CGO_ENABLED=0
-RUN go build -o ./dockyards-git ./cmd/dockyards-git
+RUN go build -o dockyards-git -ldflags="-s -w"
 
 FROM docker.io/library/golang:1.21.3 AS git-builder
 WORKDIR /tmp
