@@ -124,12 +124,12 @@ func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kus
 	return ctrl.Result{}, nil
 }
 
-func (r *KustomizeDeploymentReconciler) SetupWithManager(ctx context.Context, m ctrl.Manager) error {
-	scheme := m.GetScheme()
+func (r *KustomizeDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	scheme := mgr.GetScheme()
 
 	_ = dockyardsv1.AddToScheme(scheme)
 
-	err := ctrl.NewControllerManagedBy(m).For(&dockyardsv1.KustomizeDeployment{}).Complete(r)
+	err := ctrl.NewControllerManagedBy(mgr).For(&dockyardsv1.KustomizeDeployment{}).Complete(r)
 	if err != nil {
 		return err
 	}

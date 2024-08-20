@@ -41,7 +41,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	m, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{})
 	if err != nil {
 		logger.Error("error creating new manager", "err", err)
 
@@ -55,9 +55,9 @@ func main() {
 	}
 
 	err = (&controllers.KustomizeDeploymentReconciler{
-		Client:     m.GetClient(),
+		Client:     mgr.GetClient(),
 		Repository: &repository,
-	}).SetupWithManager(ctx, m)
+	}).SetupWithManager(mgr)
 	if err != nil {
 		logger.Error("error creating new kustomize controller", "err", err)
 
@@ -65,9 +65,9 @@ func main() {
 	}
 
 	err = (&controllers.ContainerImageDeploymentReconciler{
-		Client:     m.GetClient(),
+		Client:     mgr.GetClient(),
 		Repository: &repository,
-	}).SetupWithManager(ctx, m)
+	}).SetupWithManager(mgr)
 	if err != nil {
 		logger.Error("error creating container image controller", "err", err)
 
@@ -97,7 +97,7 @@ func main() {
 		}
 	}()
 
-	err = m.Start(ctx)
+	err = mgr.Start(ctx)
 	if err != nil {
 		logger.Error("error starting manager", "err", err)
 

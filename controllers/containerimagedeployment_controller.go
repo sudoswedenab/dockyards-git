@@ -158,12 +158,12 @@ func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context
 	return ctrl.Result{}, nil
 }
 
-func (r *ContainerImageDeploymentReconciler) SetupWithManager(ctx context.Context, m ctrl.Manager) error {
-	scheme := m.GetScheme()
+func (r *ContainerImageDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	scheme := mgr.GetScheme()
 
 	_ = dockyardsv1.AddToScheme(scheme)
 
-	err := ctrl.NewControllerManagedBy(m).For(&dockyardsv1.ContainerImageDeployment{}).Complete(r)
+	err := ctrl.NewControllerManagedBy(mgr).For(&dockyardsv1.ContainerImageDeployment{}).Complete(r)
 	if err != nil {
 		return err
 	}
