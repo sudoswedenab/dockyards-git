@@ -351,6 +351,7 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 	}
 
 	repositoryURL := r.GetRepositoryURL(repoPath)
+
 	return repositoryURL, nil
 }
 
@@ -428,6 +429,7 @@ func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *dockya
 	}
 
 	repositoryURL := r.GetRepositoryURL(repoPath)
+
 	return repositoryURL, nil
 }
 
