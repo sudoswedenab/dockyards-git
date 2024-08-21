@@ -75,12 +75,15 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 			Namespace: containerImageDeployment.Namespace,
 		}
 
-		err := r.Get(ctx, objectKey, credential)
+		var secret corev1.Secret
+		err := r.Get(ctx, objectKey, &secret)
 		if err != nil {
 			conditions.MarkFalse(&containerImageDeployment, RepositoryReadyCondition, InvalidCredentialReferenceReason, "%s", err)
 
 			return ctrl.Result{}, nil
 		}
+
+		credential = &secret
 	}
 
 	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment, ownerDeployment, credential)
