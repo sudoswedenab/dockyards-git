@@ -5,10 +5,11 @@ const (
 )
 
 const (
-	GitRepositoryReadyCondition = "GitRepositoryReady"
-)
+	RepositoryReadyCondition = "RepositoryReady"
 
-const (
-	ReconciliationFailedReason    = "ReconciliationFailed"
-	ReconciliationSucceededReason = "ReconciliationSucceded"
+	RepositoryReconciledReason       = "RepositoryReconciled"
+	ReconcileRepositoryErrorReason   = "ReconcileRepositoryError"
+	DeleteRepositoryErrorReason      = "DeleteRepositoryError"
+	WaitingForOwnerDeploymentReason  = "WaitingForOwnerDeployment"
+	InvalidCredentialReferenceReason = "InvalidCredentialReference"
 )

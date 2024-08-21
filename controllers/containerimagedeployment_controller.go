@@ -6,10 +6,9 @@ import (
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,9 +59,9 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if ownerDeployment == nil {
-		logger.Info("ignoring container image without owner deployment")
+		conditions.MarkFalse(&containerImageDeployment, RepositoryReadyCondition, WaitingForOwnerDeploymentReason, "")
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	if controllerutil.AddFinalizer(&containerImageDeployment, finalizer) {
@@ -78,24 +77,15 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 		err := r.Get(ctx, objectKey, credential)
 		if err != nil {
-			logger.Error(err, "error getting credential secret")
+			conditions.MarkFalse(&containerImageDeployment, RepositoryReadyCondition, InvalidCredentialReferenceReason, "%s", err)
 
-			return ctrl.Result{}, client.IgnoreNotFound(err)
+			return ctrl.Result{}, nil
 		}
 	}
 
 	repositoryURL, err := r.Repository.ReconcileContainerImageRepository(&containerImageDeployment, ownerDeployment, credential)
 	if err != nil {
-		logger.Error(err, "error reconciling repository for container image deployment")
-
-		gitRepositoryReadyCondition := metav1.Condition{
-			Type:    GitRepositoryReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  ReconciliationFailedReason,
-			Message: err.Error(),
-		}
-
-		meta.SetStatusCondition(&containerImageDeployment.Status.Conditions, gitRepositoryReadyCondition)
+		conditions.MarkFalse(&containerImageDeployment, RepositoryReadyCondition, ReconcileRepositoryErrorReason, "%s", err)
 
 		return ctrl.Result{}, err
 	}
@@ -106,14 +96,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		containerImageDeployment.Status.RepositoryURL = repositoryURL
 	}
 
-	gitRepositoryReadyCondition := metav1.Condition{
-		Type:               GitRepositoryReadyCondition,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: containerImageDeployment.Generation,
-		Reason:             ReconciliationSucceededReason,
-	}
-
-	meta.SetStatusCondition(&containerImageDeployment.Status.Conditions, gitRepositoryReadyCondition)
+	conditions.MarkTrue(&containerImageDeployment, RepositoryReadyCondition, RepositoryReconciledReason, "")
 
 	return ctrl.Result{}, nil
 }
@@ -123,9 +106,9 @@ func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context
 
 	err := r.Repository.DeleteRepository(containerImageDeployment)
 	if err != nil {
-		logger.Error(err, "error deleting repository")
+		conditions.MarkFalse(containerImageDeployment, RepositoryReadyCondition, DeleteRepositoryErrorReason, "%s", err)
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	logger.Info("deleted repository for container image deployment")

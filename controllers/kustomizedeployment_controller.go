@@ -5,9 +5,8 @@ import (
 
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,16 +55,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	repositoryURL, err := r.Repository.ReconcileKustomizeRepository(&kustomizeDeployment)
 	if err != nil {
-		logger.Error(err, "error reconciling repository")
-
-		gitRepositoryReadyCondition := metav1.Condition{
-			Type:    GitRepositoryReadyCondition,
-			Status:  metav1.ConditionFalse,
-			Reason:  ReconciliationFailedReason,
-			Message: err.Error(),
-		}
-
-		meta.SetStatusCondition(&kustomizeDeployment.Status.Conditions, gitRepositoryReadyCondition)
+		conditions.MarkFalse(&kustomizeDeployment, RepositoryReadyCondition, ReconcileRepositoryErrorReason, "%s", err)
 
 		return ctrl.Result{}, nil
 	}
@@ -74,14 +64,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		kustomizeDeployment.Status.RepositoryURL = repositoryURL
 	}
 
-	gitRepositoryReadyCondition := metav1.Condition{
-		Type:               GitRepositoryReadyCondition,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: kustomizeDeployment.Generation,
-		Reason:             ReconciliationSucceededReason,
-	}
-
-	meta.SetStatusCondition(&kustomizeDeployment.Status.Conditions, gitRepositoryReadyCondition)
+	conditions.MarkTrue(&kustomizeDeployment, RepositoryReadyCondition, RepositoryReconciledReason, "")
 
 	return ctrl.Result{}, nil
 }
@@ -91,9 +74,9 @@ func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kus
 
 	err := r.Repository.DeleteRepository(kustomizeDeployment)
 	if err != nil {
-		logger.Error(err, "error deleting repository")
+		conditions.MarkTrue(kustomizeDeployment, RepositoryReadyCondition, DeleteRepositoryErrorReason, "%s", err)
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	controllerutil.RemoveFinalizer(kustomizeDeployment, finalizer)

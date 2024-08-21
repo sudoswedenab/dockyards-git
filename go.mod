@@ -5,7 +5,7 @@ go 1.22.0
 toolchain go1.23.0
 
 require (
-	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240507200027-2a04486d86c7
+	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240821081532-085e46cd3940
 	github.com/fluxcd/pkg/runtime v0.49.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.9.0
