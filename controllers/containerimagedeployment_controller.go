@@ -6,9 +6,11 @@ import (
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -24,7 +26,7 @@ type ContainerImageDeploymentReconciler struct {
 	Repository *repository.GitRepository
 }
 
-func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reterr error) {
 	logger := ctrl.LoggerFrom(ctx)
 
 	var containerImageDeployment dockyardsv1.ContainerImageDeployment
@@ -35,14 +37,25 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	logger.Info("reconcile container image deployment")
 
+	patchHelper, err := patch.NewHelper(&containerImageDeployment, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	defer func() {
+		err := patchHelper.Patch(ctx, &containerImageDeployment)
+		if err != nil {
+			result = ctrl.Result{}
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
 	if !containerImageDeployment.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, &containerImageDeployment)
 	}
 
 	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &containerImageDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner deployment")
-
 		return ctrl.Result{}, err
 	}
 
@@ -52,16 +65,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, err
 	}
 
-	if !controllerutil.ContainsFinalizer(&containerImageDeployment, finalizer) {
-		patch := client.MergeFrom(containerImageDeployment.DeepCopy())
-
-		controllerutil.AddFinalizer(&containerImageDeployment, finalizer)
-
-		err := r.Patch(ctx, &containerImageDeployment, patch)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
+	if controllerutil.AddFinalizer(&containerImageDeployment, finalizer) {
 		return ctrl.Result{}, nil
 	}
 
@@ -91,23 +95,12 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 			Message: err.Error(),
 		}
 
-		patch := client.MergeFrom(containerImageDeployment.DeepCopy())
-
 		meta.SetStatusCondition(&containerImageDeployment.Status.Conditions, gitRepositoryReadyCondition)
-
-		err = r.Status().Patch(ctx, &containerImageDeployment, patch)
-		if err != nil {
-			logger.Error(err, "error patching status")
-
-			return ctrl.Result{}, err
-		}
 
 		return ctrl.Result{}, err
 	}
 
 	logger.Info("reconciled repository for container image deployment")
-
-	patch := client.MergeFrom(containerImageDeployment.DeepCopy())
 
 	if containerImageDeployment.Status.RepositoryURL != repositoryURL {
 		containerImageDeployment.Status.RepositoryURL = repositoryURL
@@ -121,13 +114,6 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	meta.SetStatusCondition(&containerImageDeployment.Status.Conditions, gitRepositoryReadyCondition)
-
-	err = r.Status().Patch(ctx, &containerImageDeployment, patch)
-	if err != nil {
-		logger.Error(err, "error patching container image deployment")
-
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 }
@@ -144,16 +130,7 @@ func (r *ContainerImageDeploymentReconciler) reconcileDelete(ctx context.Context
 
 	logger.Info("deleted repository for container image deployment")
 
-	patch := client.MergeFrom(containerImageDeployment.DeepCopy())
-
 	controllerutil.RemoveFinalizer(containerImageDeployment, finalizer)
-
-	err = r.Patch(ctx, containerImageDeployment, patch)
-	if err != nil {
-		logger.Error(err, "error patching container image deployment")
-
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 }
