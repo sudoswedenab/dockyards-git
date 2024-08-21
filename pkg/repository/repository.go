@@ -299,6 +299,7 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 				Name: credential.Name,
 			},
 			Data: credential.Data,
+			Type: corev1.SecretTypeDockerConfigJson,
 		}
 
 		secretYAML, err := yaml.Marshal(secret)
