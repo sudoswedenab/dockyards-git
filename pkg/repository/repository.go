@@ -291,6 +291,10 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 
 	if credential != nil {
 		secret := corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: credential.Name,
 			},
