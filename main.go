@@ -15,15 +15,18 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 func main() {
 	var gitProjectRoot string
 	var gitCGIPath string
 	var repositoryHostname string
+	var metricsBindAddress string
 	pflag.StringVar(&gitProjectRoot, "git-project-root", "/tmp/dockyards-git", "git project root")
 	pflag.StringVar(&gitCGIPath, "git-cgi-path", "/usr/libexec/git-core/git-http-backend", "git cgi path")
 	pflag.StringVar(&repositoryHostname, "repository-hostname", "localhost:9002", "repository hostname")
+	pflag.StringVar(&metricsBindAddress, "metrics-bind-address", "0", "metricsx bind address")
 	pflag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -41,7 +44,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	mgr, err := manager.New(cfg, manager.Options{})
+	options := manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: metricsBindAddress,
+		},
+	}
+
+	mgr, err := manager.New(cfg, options)
 	if err != nil {
 		logger.Error("error creating new manager", "err", err)
 
