@@ -275,7 +275,7 @@ func TestReconcileWorktree(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			dirTemp, err := os.MkdirTemp("", tc.name+"-")
+			dirTemp, err := os.MkdirTemp("", "worktree-")
 			if err != nil {
 				t.Fatal(err)
 			}

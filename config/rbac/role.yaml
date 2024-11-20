@@ -50,3 +50,17 @@ rules:
   - kustomizedeployments/status
   verbs:
   - patch
+- apiGroups:
+  - dockyards.io
+  resources:
+  - worktrees
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - dockyards.io
+  resources:
+  - worktrees/status
+  verbs:
+  - patch

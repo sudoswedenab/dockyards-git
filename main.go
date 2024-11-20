@@ -83,6 +83,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = (&controllers.DockyardsWorktreeReconciler{
+		Client:     mgr.GetClient(),
+		Repository: &repository,
+	}).SetupWithManager(mgr)
+	if err != nil {
+		logger.Error("error creating dockyards worktree controller", "err", err)
+
+		os.Exit(1)
+	}
+
 	cgiHandler := cgi.Handler{
 		Path: gitCGIPath,
 		Dir:  gitProjectRoot,
