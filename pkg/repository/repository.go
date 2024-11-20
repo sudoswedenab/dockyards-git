@@ -26,12 +26,17 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type Repository interface {
+	ReconcileWorktree(*dockyardsv1.Worktree) (string, error)
+}
+
 var (
 	ErrUnknownDeploymentType          = errors.New("unsupported deployment type")
 	ErrDeploymentNameEmpty            = errors.New("deployment name must not be empty")
 	ErrDeploymentImageEmpty           = errors.New("deployment image must not be empty")
 	ErrDeploymentKustomizationMissing = errors.New("no kustomization.yaml file provided")
 	ErrDeploymentUIDEmpty             = errors.New("deployment uid must not be empty")
+	ErrWorkloadUIDEmpty               = errors.New("workload uid must not be empty")
 )
 
 type GitRepository struct {
@@ -438,6 +443,75 @@ func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *dockya
 	return repositoryURL, nil
 }
 
+func (r *GitRepository) ReconcileWorktree(worktree *dockyardsv1.Worktree) (string, error) {
+	if string(worktree.UID) == "" {
+		return "", ErrWorkloadUIDEmpty
+	}
+
+	repoPath := path.Join(r.GitProjectRoot, "worktrees", string(worktree.UID))
+
+	mfs := memfs.New()
+
+	repo, err := r.OpenOrInitRepository(repoPath, mfs)
+	if err != nil {
+		return "", err
+	}
+
+	w, err := repo.Worktree()
+	if err != nil {
+		return "", err
+	}
+
+	for filename, contents := range worktree.Spec.Files {
+		file, err := mfs.Create(filename)
+		if err != nil {
+			return "", err
+		}
+
+		_, err = file.Write(contents)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	status, err := w.Status()
+	if err != nil {
+		return "", err
+	}
+
+	if !status.IsClean() {
+		for file := range status {
+			_, err := w.Add(file)
+			if err != nil {
+				return "", err
+			}
+		}
+
+		_, err := repo.Head()
+		if ignoreNotFound(err) != nil {
+			return "", err
+		}
+
+		msg := "Update worktree files"
+		if isNotFound(err) {
+			msg = "Add worktree files"
+		}
+
+		_, err = w.Commit(msg, &git.CommitOptions{
+			Author: &object.Signature{
+				Name:  "dockyards-git",
+				Email: "git@dockyards.io",
+				When:  time.Now(),
+			},
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return r.GetRepositoryURL(repoPath), nil
+}
+
 func (r *GitRepository) DeleteRepository(object client.Object) error {
 	uid := string(object.GetUID())
 	if uid == "" {
@@ -464,3 +538,5 @@ func (r *GitRepository) DeleteRepository(object client.Object) error {
 
 	return nil
 }
+
+var _ Repository = &GitRepository{}

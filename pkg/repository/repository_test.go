@@ -235,3 +235,59 @@ func TestReconcileKustomizeRepository(t *testing.T) {
 		})
 	}
 }
+
+func TestReconcileWorktree(t *testing.T) {
+	tt := []struct {
+		name     string
+		worktree dockyardsv1.Worktree
+	}{
+		{
+			name: "test single file",
+			worktree: dockyardsv1.Worktree{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "testing",
+					UID:       "502b3517-c21c-4da4-97a5-7b7c49fdb380",
+				},
+				Spec: dockyardsv1.WorktreeSpec{
+					Files: map[string][]byte{
+						"test": []byte("qwfp"),
+					},
+				},
+			},
+		},
+		{
+			name: "test nested file",
+			worktree: dockyardsv1.Worktree{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "testing",
+					UID:       "502b3517-c21c-4da4-97a5-7b7c49fdb380",
+				},
+				Spec: dockyardsv1.WorktreeSpec{
+					Files: map[string][]byte{
+						"test/nested/file": []byte("qwfp"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			dirTemp, err := os.MkdirTemp("", tc.name+"-")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			r := repository.GitRepository{
+				GitProjectRoot: dirTemp,
+			}
+
+			_, err = r.ReconcileWorktree(&tc.worktree)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
