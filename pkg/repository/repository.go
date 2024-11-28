@@ -27,7 +27,7 @@ import (
 )
 
 type Repository interface {
-	ReconcileWorktree(*dockyardsv1.Worktree) (string, error)
+	ReconcileWorktree(*dockyardsv1.Worktree) (*plumbing.Reference, *url.URL, error)
 }
 
 var (
@@ -197,7 +197,7 @@ func (r *GitRepository) OpenOrInitRepository(repoPath string, worktree billy.Fil
 	return repo, nil
 }
 
-func (r *GitRepository) GetRepositoryURL(repoPath string) string {
+func (r *GitRepository) GetRepositoryURL(repoPath string) *url.URL {
 	p := strings.TrimPrefix(repoPath, r.GitProjectRoot)
 
 	u := url.URL{
@@ -206,7 +206,7 @@ func (r *GitRepository) GetRepositoryURL(repoPath string) string {
 		Path:   p,
 	}
 
-	return u.String()
+	return &u
 }
 
 func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployment *dockyardsv1.ContainerImageDeployment, ownerDeployment *dockyardsv1.Deployment, credential *corev1.Secret) (string, error) {
@@ -362,7 +362,7 @@ func (r *GitRepository) ReconcileContainerImageRepository(containerImageDeployme
 
 	repositoryURL := r.GetRepositoryURL(repoPath)
 
-	return repositoryURL, nil
+	return repositoryURL.String(), nil
 }
 
 func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *dockyardsv1.KustomizeDeployment) (string, error) {
@@ -440,12 +440,12 @@ func (r *GitRepository) ReconcileKustomizeRepository(kustomizeDeployment *dockya
 
 	repositoryURL := r.GetRepositoryURL(repoPath)
 
-	return repositoryURL, nil
+	return repositoryURL.String(), nil
 }
 
-func (r *GitRepository) ReconcileWorktree(worktree *dockyardsv1.Worktree) (string, error) {
+func (r *GitRepository) ReconcileWorktree(worktree *dockyardsv1.Worktree) (*plumbing.Reference, *url.URL, error) {
 	if string(worktree.UID) == "" {
-		return "", ErrWorkloadUIDEmpty
+		return nil, nil, ErrWorkloadUIDEmpty
 	}
 
 	repoPath := path.Join(r.GitProjectRoot, "worktrees", string(worktree.UID))
@@ -454,62 +454,69 @@ func (r *GitRepository) ReconcileWorktree(worktree *dockyardsv1.Worktree) (strin
 
 	repo, err := r.OpenOrInitRepository(repoPath, mfs)
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 
 	w, err := repo.Worktree()
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 
 	for filename, contents := range worktree.Spec.Files {
 		file, err := mfs.Create(filename)
 		if err != nil {
-			return "", err
+			return nil, nil, err
 		}
 
 		_, err = file.Write(contents)
 		if err != nil {
-			return "", err
+			return nil, nil, err
 		}
 	}
 
 	status, err := w.Status()
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
 
-	if !status.IsClean() {
-		for file := range status {
-			_, err := w.Add(file)
-			if err != nil {
-				return "", err
-			}
-		}
+	reference, err := repo.Head()
+	if ignoreNotFound(err) != nil {
+		return nil, nil, err
+	}
 
-		_, err := repo.Head()
-		if ignoreNotFound(err) != nil {
-			return "", err
-		}
+	if status.IsClean() {
+		return reference, r.GetRepositoryURL(repoPath), nil
+	}
 
-		msg := "Update worktree files"
-		if isNotFound(err) {
-			msg = "Add worktree files"
-		}
-
-		_, err = w.Commit(msg, &git.CommitOptions{
-			Author: &object.Signature{
-				Name:  "dockyards-git",
-				Email: "git@dockyards.io",
-				When:  time.Now(),
-			},
-		})
+	for file := range status {
+		_, err := w.Add(file)
 		if err != nil {
-			return "", err
+			return nil, nil, err
 		}
 	}
 
-	return r.GetRepositoryURL(repoPath), nil
+	msg := "Update worktree files"
+	if reference == nil {
+		msg = "Add worktree files"
+	}
+
+	_, err = w.Commit(msg, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "dockyards-git",
+			Email: "git@dockyards.io",
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	reference, err = repo.Head()
+	if ignoreNotFound(err) != nil {
+		return nil, nil, err
+	}
+
+	return reference, r.GetRepositoryURL(repoPath), nil
 }
 
 func (r *GitRepository) DeleteRepository(object client.Object) error {

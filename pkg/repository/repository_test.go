@@ -6,6 +6,7 @@ import (
 
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
+	"github.com/go-git/go-git/v5/plumbing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -282,12 +283,24 @@ func TestReconcileWorktree(t *testing.T) {
 
 			r := repository.GitRepository{
 				GitProjectRoot: dirTemp,
+				Hostname:       "localhost",
 			}
 
-			_, err = r.ReconcileWorktree(&tc.worktree)
+			reference, url, err := r.ReconcileWorktree(&tc.worktree)
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			if reference.Name() != plumbing.Main {
+				t.Errorf("expected reference name %s, got %s", plumbing.Main, reference.Name())
+			}
+
+			expectedURL := "http://" + r.Hostname + "/worktrees/" + string(tc.worktree.UID)
+
+			if url.String() != expectedURL {
+				t.Errorf("expected url %s, got %s", expectedURL, url.String())
+			}
+
 		})
 	}
 }
