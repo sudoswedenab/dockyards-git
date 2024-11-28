@@ -7,7 +7,6 @@ import (
 	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
-	"github.com/go-git/go-git/v5/plumbing"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -46,15 +45,16 @@ func (r *DockyardsWorktreeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 	}()
 
-	url, err := r.Repository.ReconcileWorktree(&dockyardsWorktree)
+	reference, url, err := r.Repository.ReconcileWorktree(&dockyardsWorktree)
 	if err != nil {
 		conditions.MarkFalse(&dockyardsWorktree, RepositoryReadyCondition, ReconcileRepositoryErrorReason, "%s", err)
 
 		return ctrl.Result{}, nil
 	}
 
-	dockyardsWorktree.Status.URL = &url
-	dockyardsWorktree.Status.ReferenceName = ptr.To(plumbing.Main.String())
+	dockyardsWorktree.Status.CommitHash = ptr.To(reference.Hash().String())
+	dockyardsWorktree.Status.ReferenceName = ptr.To(reference.Name().String())
+	dockyardsWorktree.Status.URL = ptr.To(url.String())
 
 	conditions.MarkTrue(&dockyardsWorktree, RepositoryReadyCondition, dockyardsv1.ReadyReason, "")
 
