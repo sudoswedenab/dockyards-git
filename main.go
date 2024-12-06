@@ -73,16 +73,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controllers.ContainerImageDeploymentReconciler{
-		Client:     mgr.GetClient(),
-		Repository: &repository,
-	}).SetupWithManager(mgr)
-	if err != nil {
-		logger.Error("error creating container image controller", "err", err)
-
-		os.Exit(1)
-	}
-
 	err = (&controllers.DockyardsWorktreeReconciler{
 		Client:     mgr.GetClient(),
 		Repository: &repository,

@@ -5,37 +5,6 @@ metadata:
   name: dockyards-git
 rules:
 - apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - containerimagedeployments
-  verbs:
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - containerimagedeployments/status
-  verbs:
-  - patch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - deployments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - dockyards.io
   resources:
   - kustomizedeployments
