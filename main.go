@@ -63,16 +63,6 @@ func main() {
 		Hostname:       repositoryHostname,
 	}
 
-	err = (&controllers.KustomizeDeploymentReconciler{
-		Client:     mgr.GetClient(),
-		Repository: &repository,
-	}).SetupWithManager(mgr)
-	if err != nil {
-		logger.Error("error creating new kustomize controller", "err", err)
-
-		os.Exit(1)
-	}
-
 	err = (&controllers.DockyardsWorktreeReconciler{
 		Client:     mgr.GetClient(),
 		Repository: &repository,
