@@ -7,8 +7,8 @@ RUN go build -o dockyards-git -ldflags="-s -w"
 FROM docker.io/library/golang:1.23.0 AS git-builder
 WORKDIR /tmp
 RUN apt update && apt install zlib1g-dev gettext --no-install-recommends --yes
-RUN curl --silent --show-error --location https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.47.0.tar.gz | tar zxpvf -
-WORKDIR /tmp/git-2.47.0
+RUN curl --silent --show-error --location https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.48.1.tar.gz | tar zxpvf -
+WORKDIR /tmp/git-2.48.1
 RUN ./configure --prefix /tmp/static --without-tcltk CFLAGS="${CFLAGS} -static" && make install
 
 FROM gcr.io/distroless/static-debian12:nonroot
