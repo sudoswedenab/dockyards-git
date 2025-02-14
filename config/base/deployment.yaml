@@ -42,8 +42,6 @@ spec:
       volumes:
       - name: git-repositories
         emptyDir: {}
-      imagePullSecrets:
-      - name: dockyards-registry
       securityContext:
         runAsUser: 65532
         runAsGroup: 65532
