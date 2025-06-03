@@ -4,9 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/go-git/go-git/v5/plumbing"
 	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
+	"github.com/sudoswedenab/dockyards-git/pkg/repository"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

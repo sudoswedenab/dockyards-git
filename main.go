@@ -8,10 +8,10 @@ import (
 	"os"
 	"os/signal"
 
-	"bitbucket.org/sudosweden/dockyards-git/controllers"
-	"bitbucket.org/sudosweden/dockyards-git/pkg/repository"
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
+	"github.com/sudoswedenab/dockyards-git/controllers"
+	"github.com/sudoswedenab/dockyards-git/pkg/repository"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
