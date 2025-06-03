@@ -1,8 +1,6 @@
 module github.com/sudoswedenab/dockyards-git
 
-go 1.22.0
-
-toolchain go1.23.0
+go 1.24.3
 
 require (
 	github.com/fluxcd/pkg/runtime v0.49.0
