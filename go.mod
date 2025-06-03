@@ -5,12 +5,12 @@ go 1.22.0
 toolchain go1.23.0
 
 require (
-	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20241128124853-a02dbf82de85
 	github.com/fluxcd/pkg/runtime v0.49.0
 	github.com/go-git/go-billy/v5 v5.6.0
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-logr/logr v1.4.2
 	github.com/spf13/pflag v1.0.5
+	github.com/sudoswedenab/dockyards-backend/api v0.0.0-20250602114210-f9d0ebde9807
 	k8s.io/apimachinery v0.31.0
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	sigs.k8s.io/controller-runtime v0.19.0

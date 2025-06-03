@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/osfs"
@@ -18,6 +17,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/cache"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
