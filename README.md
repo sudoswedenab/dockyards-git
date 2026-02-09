@@ -5,26 +5,27 @@
 ## Component diagram
 ```mermaid
 flowchart TB
-    User
-    DockyardsBackend["dockyards-backend API"]
-    DockyardsGit["dockyards-git"]
-    DockyardsFlux2["dockyards-flux2"]
-    Flux2
-    DockyardsWorkload@{ shape: card, label: "dockyards.io/v1alpha3 Workload"}
-    DockyardsWorktree@{ shape: card, label: "dockyards.io/v1alpha3 Worktree"}
-    FluxGitRepository@{ shape: card, label: "fluxcd.io/v1beta1 GitRepository"}
-    WorkloadCluster@{ shape: cloud, label: "dockyards.io/v1alpha3 Cluster" }
+    User@{shape: rect, label: "User"}
+    DockyardsBackend@{shape: rect, label: "dockyards-backend API"}
+    DockyardsGit@{shape: rect, label: "dockyards-git"}
+    DockyardsFlux2@{shape: rect, label: "dockyards-flux2"}
+    Flux2@{shape: rect, label: "Flux"}
+    DockyardsWorkloadTemplate@{shape: doc, label: "dockyards.io/v1alpha3 WorkloadTemplate"}
+    DockyardsWorkload@{shape: doc, label: "dockyards.io/v1alpha3 Workload"}
+    DockyardsWorktree@{shape: doc, label: "dockyards.io/v1alpha3 Worktree"}
+    FluxGitRepository@{shape: doc, label: "fluxcd.io/v1beta1 GitRepository"}
+    WorkloadCluster@{shape: cloud, label: "dockyards.io/v1alpha3 Cluster"}
 
-    User -->|requests workspace| DockyardsBackend
+    User -->|deploys workload through API| DockyardsBackend
     DockyardsBackend -->|instantiates| DockyardsWorkloadTemplate
     DockyardsWorkloadTemplate --> DockyardsWorkload
 
     DockyardsWorkload -->|is reconciled by| DockyardsFlux2
-    DockyardsFlux2 --> |creates| DockyardsWorktree
+    DockyardsFlux2 -->|creates| DockyardsWorktree
     DockyardsWorktree -->|is reconciled by| DockyardsGit
     DockyardsGit -->|creates| FluxGitRepository
     FluxGitRepository -->|is reconciled by| Flux2
-    Flux2 --> |provisions into| WorkloadCluster
+    Flux2 -->|provisions into| WorkloadCluster
 
     subgraph Management Cluster
         subgraph Flux System
@@ -45,7 +46,6 @@ flowchart TB
             DockyardsWorkload
             FluxGitRepository
             DockyardsWorktree
-
             WorkloadCluster
         end
     end
