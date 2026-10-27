@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main contains code generation directives for this module.
 package main
 
 //go:generate go run sigs.k8s.io/controller-tools/cmd/controller-gen rbac:roleName=dockyards-git paths="./..."

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package repository manages local Git repositories for Dockyards worktrees.
 package repository
 
 import (
@@ -35,10 +36,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Repository describes repository operations required by reconcilers.
 type Repository interface {
 	ReconcileWorktree(*dockyardsv1.Worktree) (*plumbing.Reference, *url.URL, error)
 }
 
+// Repository and deployment validation errors.
 var (
 	ErrUnknownDeploymentType          = errors.New("unsupported deployment type")
 	ErrDeploymentNameEmpty            = errors.New("deployment name must not be empty")
@@ -48,6 +51,7 @@ var (
 	ErrWorkloadUIDEmpty               = errors.New("workload uid must not be empty")
 )
 
+// GitRepository stores and updates local repositories for Worktree objects.
 type GitRepository struct {
 	GitProjectRoot string
 	Logger         *slog.Logger
@@ -78,6 +82,7 @@ func ignoreNotExists(err error) error {
 	return err
 }
 
+// OpenOrInitRepository opens an existing repository or initializes one when missing.
 func (r *GitRepository) OpenOrInitRepository(repoPath string, worktree billy.Filesystem) (*git.Repository, error) {
 	fs := osfs.New(repoPath)
 	storage := filesystem.NewStorage(fs, cache.NewObjectLRUDefault())
@@ -106,6 +111,7 @@ func (r *GitRepository) OpenOrInitRepository(repoPath string, worktree billy.Fil
 	return repo, nil
 }
 
+// GetRepositoryURL returns an addressable URL for a repository path.
 func (r *GitRepository) GetRepositoryURL(repoPath string) *url.URL {
 	p := strings.TrimPrefix(repoPath, r.GitProjectRoot)
 
@@ -118,6 +124,7 @@ func (r *GitRepository) GetRepositoryURL(repoPath string) *url.URL {
 	return &u
 }
 
+// ReconcileWorktree writes files from a Worktree spec and commits changes.
 func (r *GitRepository) ReconcileWorktree(worktree *dockyardsv1.Worktree) (*plumbing.Reference, *url.URL, error) {
 	if string(worktree.UID) == "" {
 		return nil, nil, ErrWorkloadUIDEmpty
@@ -194,6 +201,7 @@ func (r *GitRepository) ReconcileWorktree(worktree *dockyardsv1.Worktree) (*plum
 	return reference, r.GetRepositoryURL(repoPath), nil
 }
 
+// DeleteRepository removes a deployment repository from disk.
 func (r *GitRepository) DeleteRepository(object client.Object) error {
 	uid := string(object.GetUID())
 	if uid == "" {

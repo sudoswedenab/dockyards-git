@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package controllers contains Kubernetes reconcilers for Dockyards resources.
 package controllers
 
+// RepositoryReadyCondition indicates whether the worktree repository is in sync.
 const (
 	RepositoryReadyCondition = "RepositoryReady"
 

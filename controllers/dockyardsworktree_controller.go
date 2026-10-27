@@ -30,11 +30,13 @@ import (
 // +kubebuilder:rbac:groups=dockyards.io,resources=worktrees/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=worktrees,verbs=get;list;watch
 
+// DockyardsWorktreeReconciler reconciles Dockyards Worktree resources.
 type DockyardsWorktreeReconciler struct {
 	client.Client
 	Repository repository.Repository
 }
 
+// Reconcile ensures the repository state matches the Worktree spec.
 func (r *DockyardsWorktreeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reterr error) {
 	logger := ctrl.LoggerFrom(ctx)
 
@@ -75,6 +77,7 @@ func (r *DockyardsWorktreeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager registers the reconciler with the controller manager.
 func (r *DockyardsWorktreeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	scheme := mgr.GetScheme()
 
