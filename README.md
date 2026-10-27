@@ -23,7 +23,9 @@ flowchart TB
     DockyardsWorkload -->|is reconciled by| DockyardsFlux2
     DockyardsFlux2 -->|creates| DockyardsWorktree
     DockyardsWorktree -->|is reconciled by| DockyardsGit
-    DockyardsGit -->|creates| FluxGitRepository
+    DockyardsGit -->|updates status URL/ref/hash on| DockyardsWorktree
+    DockyardsWorktree -->|status consumed by| DockyardsFlux2
+    DockyardsFlux2 -->|creates/updates| FluxGitRepository
     FluxGitRepository -->|is reconciled by| Flux2
     Flux2 -->|provisions into| WorkloadCluster
 
@@ -51,25 +53,25 @@ flowchart TB
     end
 ```
 
-The diagram walks the full lifecycle that starts when a user requests a workspace: `dockyards-backend` instantiates the workload and template objects, `dockyards-flux2` reconciles those resources and creates a `DockyardsWorktree`, and `dockyards-git` finally owns that `Worktree` object. `dockyards-git` turns the `Worktree` into a real repository, exposes it through `git-http-backend`, and feeds the resulting location back into the `FluxGitRepository` that is watched by the Flux source/kustomize/helm stack shown in the `Flux System` subgraph.
+The diagram walks the full lifecycle that starts when a user requests a workspace: `dockyards-backend` instantiates the workload and template objects, `dockyards-flux2` reconciles those resources and creates a `DockyardsWorktree`, and `dockyards-git` reconciles that `Worktree` object. `dockyards-git` turns the `Worktree` into a real repository, exposes it through `git-http-backend`, and writes repository URL/reference/commit status back to the `Worktree`. `dockyards-flux2` then consumes those status fields to create or update the `FluxGitRepository` watched by the Flux source/kustomize/helm stack shown in the `Flux System` subgraph.
 
 ## Responsibilities
 
 - **Worktree reconciliation:** `DockyardsWorktreeReconciler` (controllers/dockyardsworktree_controller.go) watches the CRD, creates or updates the on-disk repository under `--git-project-root/worktrees/<uid>`, writes every `spec.files` entry, commits the changes, and records the new URL/reference in `status`.
 - **Git hosting:** A CGI `git-http-backend` binary (`--git-cgi-path`) serves the repository on port 9002 so Flux `GitRepository` sources and other Git clients can fetch the workspace. The CGI handler inherits the same filesystem root `--git-project-root` that the controller uses.
-- **Status propagation and Flux linkage:** Once the repository exists, the controller sets `status.url`, `status.referenceName`, and `status.commitHash`. The `FluxGitRepository` resource shown in the diagram is driven by those status fields, is reconciled by `dockyards-flux2`, and in turn pushes the workspace manifests through the Flux source/kustomize/helm stack.
-- **Cleanup helpers:** `GitRepository.DeleteRepository` removes repository data when owner references are deleted so the on-disk project tree does not leak.
+- **Status propagation and Flux linkage:** Once the repository exists, the controller sets `status.url`, `status.referenceName`, and `status.commitHash`. The `FluxGitRepository` resource shown in the diagram is reconciled by `dockyards-flux2`, which consumes those status fields and pushes workspace manifests through the Flux source/kustomize/helm stack.
+- **Cleanup helper (not currently wired):** `GitRepository.DeleteRepository` exists as a helper for removing repository data, but it is not currently invoked by the `DockyardsWorktreeReconciler`.
 
 ## Runtime configuration
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
-| `--git-project-root` | `/tmp/dockyards-git` | Root directory for all repositories (`/worktrees` and `/deployments`). |
+| `--git-project-root` | `/tmp/dockyards-git` | Root directory for repositories created from `Worktree` objects (under `/worktrees/<uid>`). |
 | `--git-cgi-path` | `/usr/libexec/git-core/git-http-backend` | CGI binary that powers `git-http-backend`. |
-| `--repository-hostname` | `dockyards-git.$(METADATA_NAMESPACE).svc.cluster.local:9002` | Hostname advertised in `Worktree.status.url`. |
+| `--repository-hostname` | `localhost:9002` | Hostname advertised in `Worktree.status.url` (overridden in cluster manifests). |
 | `--metrics-bind-address` | `0` | Controller-runtime metrics server bind (set to `0` to disable). |
 
-The `config/base` manifests deploy the controller into `dockyards-system` with a service at `port 9002` and the CGI handler wired to the same project root via environment variables.
+The `config/base` manifests deploy the controller into `dockyards-system` with a service on port `80` targeting container port `9002`, and they override `--repository-hostname` to `dockyards-git.$(METADATA_NAMESPACE).svc.cluster.local`.
 
 ## Development
 
