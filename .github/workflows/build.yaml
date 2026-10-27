@@ -16,15 +16,28 @@ name: build
 on:
   push:
     branches:
+      - feat/*
+      - fix/*
+      - refactor/*
       - main
+    paths:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+      - .golangci.yaml
+      - Containerfile
+      - generate.go
+      - config/**
+      - controllers/**
+      - hack/**
+      - pkg/**
+  workflow_dispatch:
 permissions:
+  id-token: write
   contents: read
 jobs:
-  build-push:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - id: prep
         run: |
